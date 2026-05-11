@@ -1,0 +1,2693 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>えこぷろ 現場スケジュール管理</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --accent: #3d7fff;
+    --accent2: #00c9a7;
+    --accent3: #ff6b6b;
+    --accent4: #f7b731;
+    --text: #e8eaf0;
+    --text2: #8892b0;
+    --text3: #4a5568;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .header-logo {
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+  .header-logo span { color: var(--text2); font-weight: 400; font-size: 12px; margin-left: 8px; }
+  .header-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .nav-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    background: transparent;
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { background: var(--surface2); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #fff; }
+  .header-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+  /* ===== LAYOUT ===== */
+  .app { display: flex; height: calc(100vh - 56px); }
+  .sidebar {
+    width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 16px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .main { flex: 1; overflow-y: auto; padding: 20px; }
+
+  @media (max-width: 768px) {
+    .app { flex-direction: column; height: auto; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  /* ===== TABS ===== */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar-section { margin-bottom: 20px; }
+  .sidebar-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+  .month-nav button {
+    background: none;
+    border: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0 4px;
+    transition: color 0.2s;
+  }
+  .month-nav button:hover { color: var(--accent); }
+  .month-display {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text);
+  }
+
+  .alert-list { display: flex; flex-direction: column; gap: 8px; }
+  .alert-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    border-left: 3px solid var(--accent3);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .alert-item.warn { border-color: var(--accent4); }
+  .alert-item.ok { border-color: var(--accent2); }
+  .alert-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent3);
+    margin-bottom: 3px;
+  }
+  .alert-item.warn .alert-label { color: var(--accent4); }
+  .alert-item.ok .alert-label { color: var(--accent2); }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ===== SCHEDULE GRID ===== */
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    gap: 2px;
+    font-size: 11px;
+  }
+  .sg-header {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 6px 4px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text2);
+  }
+  .sg-header.sun { color: #ff6b6b; }
+  .sg-header.sat { color: #4a9eff; }
+  .sg-date {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-weight: 700;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sg-date.today { color: var(--accent); }
+  .sg-cell {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 4px;
+    min-height: 60px;
+    cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .sg-cell:hover { background: #2a3050; }
+  .sg-cell.weekend { opacity: 0.5; }
+
+  .job-chip {
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .job-chip.teamA { background: rgba(61,127,255,0.25); color: #7eb3ff; border: 1px solid rgba(61,127,255,0.4); }
+  .job-chip.teamB { background: rgba(0,201,167,0.2); color: #4de0c9; border: 1px solid rgba(0,201,167,0.35); }
+  /* NEW sub-status chip colors */
+  .job-chip.sub-alert { background: rgba(255,107,107,0.2); color: #ff8f8f; border: 1px solid rgba(255,107,107,0.35); }
+  .job-chip.sub-pending { background: rgba(247,183,49,0.2); color: #fac940; border: 1px solid rgba(247,183,49,0.35); }
+  .job-chip.sub-requested { background: rgba(61,127,255,0.25); color: #7eb3ff; border: 1px solid rgba(61,127,255,0.4); }
+  .job-chip.sub-confirmed { background: rgba(0,201,167,0.2); color: #4de0c9; border: 1px solid rgba(0,201,167,0.35); }
+
+  /* ===== PROPERTY LIST ===== */
+  .prop-list { display: flex; flex-direction: column; gap: 10px; }
+  .prop-item {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .prop-item:hover { border-color: var(--accent); background: #1e2235; }
+  .prop-freq {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .freq-monthly { background: rgba(61,127,255,0.2); color: #7eb3ff; }
+  .freq-bimonthly { background: rgba(0,201,167,0.2); color: #4de0c9; }
+  .freq-quarterly { background: rgba(247,183,49,0.2); color: #fac940; }
+  .prop-info { flex: 1; min-width: 0; }
+  .prop-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .prop-meta { color: var(--text2); font-size: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .prop-actions { display: flex; gap: 6px; }
+
+  /* ===== BADGE ===== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-blue { background: rgba(61,127,255,0.2); color: #7eb3ff; }
+  .badge-green { background: rgba(0,201,167,0.2); color: #4de0c9; }
+  .badge-red { background: rgba(255,107,107,0.2); color: #ff8f8f; }
+  .badge-yellow { background: rgba(247,183,49,0.2); color: #fac940; }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5590ff; }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+  .btn-danger { background: rgba(255,107,107,0.15); color: var(--accent3); border: 1px solid rgba(255,107,107,0.3); }
+  .btn-danger:hover { background: rgba(255,107,107,0.25); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-icon { padding: 6px 8px; }
+
+  /* ===== FORM ===== */
+  .form-grid { display: grid; gap: 14px; }
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 600px) {
+    .form-grid-2, .form-grid-3 { grid-template-columns: 1fr; }
+  }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .form-control {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-control:focus { border-color: var(--accent); }
+  textarea.form-control { resize: vertical; min-height: 80px; }
+  select.form-control { appearance: none; cursor: pointer; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+  }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .modal-title { font-size: 18px; font-weight: 900; }
+  .modal-close {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* ===== STAFF TABLE ===== */
+  .staff-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) { .staff-grid { grid-template-columns: 1fr; } }
+  .team-card {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .team-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  .team-label.a { color: #7eb3ff; border-color: #7eb3ff; }
+  .team-label.b { color: #4de0c9; border-color: #4de0c9; }
+
+  /* ===== SUBCONTRACTOR ===== */
+  .sub-table { width: 100%; border-collapse: collapse; }
+  .sub-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+  }
+  .sub-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(46,51,80,0.5);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .sub-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* ===== STATUS ===== */
+  .status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+  .status-pending { background: var(--accent4); }
+  .status-requested { background: var(--accent); }
+  .status-confirmed { background: var(--accent2); }
+  .status-none { background: var(--text3); }
+
+  /* ===== TOPBAR ACTIONS ===== */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .page-title { font-size: 20px; font-weight: 900; }
+
+  /* ===== TABS within page ===== */
+  .inner-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .inner-tab {
+    padding: 8px 16px;
+    border: none;
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+  .inner-tab.active { color: var(--accent); border-color: var(--accent); }
+  .inner-tab:hover:not(.active) { color: var(--text); }
+
+  .inner-page { display: none; }
+  .inner-page.active { display: block; }
+
+  /* ===== SUMMARY STATS ===== */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 600px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-num { font-size: 28px; font-weight: 900; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  /* ===== EMPTY STATE ===== */
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ===== SPECIAL NOTES TAG ===== */
+  .special-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(247,183,49,0.15);
+    border: 1px solid rgba(247,183,49,0.3);
+    color: #fac940;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ===== TOOL TAG ===== */
+  .tool-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(61,127,255,0.1);
+    border: 1px solid rgba(61,127,255,0.2);
+    color: #7eb3ff;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    margin: 2px;
+  }
+
+  /* ===== ROUTE DISPLAY ===== */
+  .route-stop {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    position: relative;
+  }
+  .route-stop:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 36px;
+    width: 2px;
+    height: calc(100% - 12px);
+    background: var(--border);
+  }
+  .route-num {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 13px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .route-info { flex: 1; }
+  .route-name { font-weight: 700; }
+  .route-addr { color: var(--text2); font-size: 12px; }
+
+  /* checkbox tools */
+  .tool-check-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .tool-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    user-select: none;
+    transition: all 0.15s;
+  }
+  .tool-check input { display: none; }
+  .tool-check.checked { background: rgba(61,127,255,0.15); border-color: rgba(61,127,255,0.4); color: #7eb3ff; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .ml-auto { margin-left: auto; }
+  .mb-12 { margin-bottom: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  .text-sm { font-size: 12px; }
+  .text-muted { color: var(--text2); }
+  .w-full { width: 100%; }
+
+  /* toggle */
+  .toggle-wrap { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; gap: 3px; }
+  .toggle-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--text2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .toggle-btn.active { background: var(--accent); color: #fff; }
+
+  /* ===== TODAY PAGE ===== */
+  .today-team-section {
+    margin-bottom: 24px;
+  }
+  .today-team-label {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    display: inline-block;
+  }
+  .today-team-label.a { background: rgba(61,127,255,0.15); color: #7eb3ff; }
+  .today-team-label.b { background: rgba(0,201,167,0.15); color: #4de0c9; }
+  .today-job-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .today-prop-name {
+    font-size: 22px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+  .today-address-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 12px;
+    transition: all 0.15s;
+  }
+  .today-address-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .today-notes-box {
+    background: rgba(247,183,49,0.08);
+    border: 1px solid rgba(247,183,49,0.25);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+  .today-notes-label {
+    color: #fac940;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  /* ===== PRINT CSS ===== */
+  @media print {
+    .header, .sidebar, .topbar .flex, .btn, .modal-overlay { display: none !important; }
+    .app { display: block; }
+    .main { padding: 0; }
+    body { background: #fff; color: #000; }
+    .card { border: 1px solid #ccc; box-shadow: none; }
+    .sg-cell { background: #f9f9f9; }
+    .job-chip { color: #000 !important; background: #eee !important; border: 1px solid #ccc !important; }
+  }
+
+  /* ===== MOBILE TAP TARGETS ===== */
+  @media (max-width: 768px) {
+    .btn-sm { min-height: 44px; padding: 10px 14px; }
+    .nav-btn { min-height: 44px; }
+    .modal { border-radius: 16px; }
+  }
+  /* ===== SYNC STATUS ===== */
+  .sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-weight: 600;
+    transition: all 0.3s;
+  }
+  .sync-badge.synced  { background: rgba(0,201,167,0.15); color: var(--accent2); }
+  .sync-badge.saving  { background: rgba(61,127,255,0.15); color: var(--accent); }
+  .sync-badge.offline { background: rgba(255,107,107,0.15); color: var(--accent3); }
+  .sync-badge.loading { background: rgba(247,183,49,0.15);  color: var(--accent4); }
+  .sync-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .sync-badge.saving  .sync-dot { animation: pulse 0.8s infinite; }
+  .sync-badge.loading .sync-dot { animation: pulse 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ===== 完了チェック ===== */
+  .job-chip.completed { opacity: 0.45; text-decoration: line-through; }
+  .complete-btn { padding: 4px 12px; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; transition: all 0.2s; }
+  .complete-btn.done { background: rgba(0,201,167,0.2); color: var(--accent2); border: 1px solid rgba(0,201,167,0.4); }
+  .complete-btn.undone { background: rgba(46,51,80,0.8); color: var(--text2); border: 1px solid var(--border); }
+
+  /* ===== 請求管理 ===== */
+  .billing-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .billing-amount { font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+  .billing-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .billing-table th { color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; padding: 8px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+  .billing-table td { padding: 10px 12px; border-bottom: 1px solid rgba(46,51,80,0.5); }
+  .billing-table tr:hover td { background: rgba(61,127,255,0.04); }
+
+  /* ===== 写真 ===== */
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .photo-thumb-wrap { position: relative; display: inline-block; }
+  .photo-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid var(--border); display: block; }
+  .photo-del-btn { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.75); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; cursor: pointer; font-size: 10px; line-height: 18px; text-align: center; padding: 0; }
+  .photo-uploading { width: 80px; height: 80px; border-radius: 8px; border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text3); }
+
+  /* ===== ログイン ===== */
+  .login-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999;
+  }
+  .login-overlay.hidden { display: none; }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  }
+  .login-logo { font-size: 28px; font-weight: 900; color: var(--accent); margin-bottom: 6px; }
+  .login-sub { color: var(--text2); font-size: 13px; margin-bottom: 32px; }
+  .login-error { color: var(--accent3); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+  /* ===== 印刷 ===== */
+  @media print {
+    .header-actions, .sidebar, .modal-overlay, .inner-tabs, .toggle-wrap, .topbar .btn, .topbar button { display: none !important; }
+    .header { position: static !important; box-shadow: none; }
+    .header-nav .nav-btn:not(.active) { display: none !important; }
+    .app { height: auto !important; display: block !important; }
+    .main { overflow: visible !important; padding: 0 !important; }
+    body, .card, .main { background: #fff !important; color: #000 !important; }
+    .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+    .sg-cell { background: #f8f8f8 !important; color: #000 !important; min-height: 50px !important; }
+    .sg-header, .sg-date { background: #eee !important; color: #000 !important; }
+    .job-chip { background: #e0e0e0 !important; color: #000 !important; border: 1px solid #999 !important; }
+    .page:not(.active) { display: none !important; }
+    .sub-table th, .sub-table td { color: #000 !important; border-color: #ccc !important; }
+    a[href]:after { content: "" !important; }
+  }
+</style>
+<!-- Firebase compat SDK (CDN – no npm needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-logo">えこぷろ</div>
+    <div class="login-sub">現場管理システム</div>
+    <div class="form-group" style="text-align:left;">
+      <label>パスワード</label>
+      <input type="password" class="form-control" id="loginInput" placeholder="パスワードを入力" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary w-full" style="margin-top:8px;" onclick="doLogin()">ログイン</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-logo">えこぷろ<span>現場管理システム</span></div>
+  <nav class="header-nav">
+    <button class="nav-btn active" onclick="showPage('schedule', this)">📅 スケジュール</button>
+    <button class="nav-btn" onclick="showPage('today', this)">📍 今日</button>
+    <button class="nav-btn" onclick="showPage('properties', this)">🏢 物件</button>
+    <button class="nav-btn" onclick="showPage('staff', this)">👥 人員</button>
+    <button class="nav-btn" onclick="showPage('subcontractor', this)">🤝 下請け</button>
+    <button class="nav-btn" onclick="showPage('billing', this)">💰 請求</button>
+  </nav>
+  <div class="header-actions">
+    <span class="sync-badge loading" id="syncBadge"><span class="sync-dot"></span><span id="syncText">接続中…</span></span>
+    <button class="btn btn-secondary btn-sm" onclick="changePassword()" title="パスワード変更">🔑</button>
+    <button class="btn btn-secondary btn-sm" onclick="doLogout()" title="ログアウト">🚪</button>
+    <button class="btn btn-secondary btn-sm" id="notifBtn" onclick="setupNotifications()" title="通知設定">🔔</button>
+    <button class="btn btn-secondary btn-sm" onclick="window.print()" title="印刷">🖨</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportJSON()">💾 バックアップ</button>
+    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('importFile').click()">📂 復元</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="btn btn-secondary btn-sm" onclick="exportCSV()">📊 CSV出力</button>
+  </div>
+</header>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">表示月</div>
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">‹</button>
+        <div class="month-display" id="monthDisplay">2026年5月</div>
+        <button onclick="changeMonth(1)">›</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary w-full" onclick="openAddScheduleModal()">＋ 現場追加</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">🚨 アラート</div>
+      <div class="alert-list" id="alertList">
+        <div class="alert-item warn">
+          <div class="alert-label">⚠ 依頼期限近い</div>
+          サンビリーブ博多 — 残3日
+        </div>
+        <div class="alert-item">
+          <div class="alert-label">❗ 未依頼</div>
+          パシフィック箱崎Ⅶ — 6/12
+        </div>
+        <div class="alert-item ok">
+          <div class="alert-label">✓ 確定済み</div>
+          グランツ大橋 — A班
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">今月サマリ</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="stat-card" style="padding:10px;text-align:center;">
+          <div class="stat-num" style="font-size:22px;" id="totalJobs">0</div>
+          <div class="stat-label">件</div>
+        </div>
+        <div class="stat-card" style="padding:10px;text-align:center;">
+          <div class="stat-num" style="font-size:22px;color:var(--accent3);" id="alertCount">0</div>
+          <div class="stat-label">要対応</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- ===== SCHEDULE PAGE ===== -->
+    <div class="page active" id="page-schedule">
+      <div class="topbar">
+        <div class="topbar-left">
+          <div class="page-title" id="scheduleTitle">2026年5月 現場スケジュール</div>
+        </div>
+        <div class="flex gap-8" style="flex-wrap:wrap;">
+          <div class="toggle-wrap">
+            <button class="toggle-btn active" onclick="switchView('calendar',this)">カレンダー</button>
+            <button class="toggle-btn" onclick="switchView('list',this)">リスト</button>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="autoGenerate()">🔄 自動生成</button>
+          <button class="btn btn-secondary btn-sm" onclick="previewNextMonth()">👁 来月プレビュー</button>
+        </div>
+      </div>
+
+      <!-- Calendar View -->
+      <div id="calendarView">
+        <div class="card">
+          <div id="calendarGrid"></div>
+        </div>
+      </div>
+
+      <!-- List View -->
+      <div id="listView" style="display:none;">
+        <div class="card">
+          <div id="scheduleListInner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TODAY PAGE ===== -->
+    <div class="page" id="page-today">
+      <div class="topbar">
+        <div class="page-title" id="todayTitle">今日の現場</div>
+      </div>
+      <div id="todaySummary"></div>
+    </div>
+
+    <!-- ===== PROPERTIES PAGE ===== -->
+    <div class="page" id="page-properties">
+      <div class="topbar">
+        <div class="page-title">物件マスタ</div>
+        <button class="btn btn-primary" onclick="openPropertyModal()">＋ 物件登録</button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="propCount">0</div><div class="stat-label">登録物件</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--accent2);" id="propMonthly">0</div><div class="stat-label">月1回</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--accent4);" id="propQuarterly">0</div><div class="stat-label">3ヶ月に1回</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:#a78bfa;" id="propBimonthly">0</div><div class="stat-label">偶数月</div></div>
+      </div>
+
+      <div class="card">
+        <div class="flex gap-8 mb-16">
+          <input type="text" class="form-control" style="max-width:280px;" placeholder="🔍 物件名で検索..." id="propSearch" oninput="filterProperties()">
+          <select class="form-control" style="max-width:160px;" id="propFreqFilter" onchange="filterProperties()">
+            <option value="">全ての頻度</option>
+            <option value="monthly">月1回</option>
+            <option value="bimonthly">偶数月</option>
+            <option value="quarterly">3ヶ月に1回</option>
+            <option value="custom">その他</option>
+          </select>
+        </div>
+        <div class="prop-list" id="propList"></div>
+      </div>
+    </div>
+
+    <!-- ===== STAFF PAGE ===== -->
+    <div class="page" id="page-staff">
+      <div class="topbar">
+        <div class="page-title">人員管理</div>
+        <button class="btn btn-primary" onclick="openStaffModal()">＋ スタッフ追加</button>
+      </div>
+
+      <div class="staff-grid">
+        <div class="team-card">
+          <div class="team-label a">A班 — 正社員</div>
+          <div id="teamA-list"></div>
+        </div>
+        <div class="team-card">
+          <div class="team-label b">B班 — 正社員</div>
+          <div id="teamB-list"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><div class="dot"></div>今月の稼働状況</div>
+        <div id="staffWorkload"></div>
+      </div>
+    </div>
+
+    <!-- ===== SUBCONTRACTOR PAGE ===== -->
+    <div class="page" id="page-subcontractor">
+      <div class="topbar">
+        <div class="page-title">下請け管理</div>
+        <button class="btn btn-primary" onclick="openSubModal()">＋ 依頼追加</button>
+      </div>
+
+      <div class="inner-tabs">
+        <button class="inner-tab active" onclick="showInnerTab('sub-requests',this)">依頼管理</button>
+        <button class="inner-tab" onclick="showInnerTab('sub-companies',this)">下請け会社</button>
+      </div>
+
+      <div class="inner-page active" id="inner-sub-requests">
+        <div class="flex gap-8 mb-16" style="flex-wrap:wrap;">
+          <select class="form-control" style="max-width:160px;" id="subStatusFilter" onchange="filterSubs()">
+            <option value="">全ステータス</option>
+            <option value="pending">未依頼</option>
+            <option value="requested">依頼済み</option>
+            <option value="confirmed">確定</option>
+          </select>
+          <select class="form-control" style="max-width:200px;" id="subMonthFilter" onchange="filterSubs()">
+          </select>
+        </div>
+        <div class="card" style="overflow-x:auto;">
+          <table class="sub-table">
+            <thead>
+              <tr>
+                <th>作業日</th>
+                <th>物件名</th>
+                <th>班</th>
+                <th>下請け会社</th>
+                <th>ステータス</th>
+                <th>依頼方法</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="subTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="inner-page" id="inner-sub-companies">
+        <div class="card">
+          <div id="subCompaniesList"></div>
+        </div>
+        <button class="btn btn-secondary mt-12" onclick="openSubCompanyModal()" style="margin-top:12px;">＋ 会社登録</button>
+      </div>
+    </div>
+
+    <!-- ===== BILLING PAGE ===== -->
+    <div class="page" id="page-billing">
+      <div class="topbar">
+        <div class="page-title">💰 請求管理</div>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-sm" onclick="exportBillingCSV()">📊 CSV出力</button>
+        </div>
+      </div>
+      <div class="billing-cards">
+        <div class="stat-card">
+          <div class="billing-amount" style="color:var(--accent2);" id="billingCompleted">¥0</div>
+          <div class="stat-label">完了分 合計</div>
+        </div>
+        <div class="stat-card">
+          <div class="billing-amount" style="color:var(--accent);" id="billingScheduled">¥0</div>
+          <div class="stat-label">今月予定 合計</div>
+        </div>
+        <div class="stat-card">
+          <div class="billing-amount" style="font-size:22px;" id="billingRatio">0 / 0</div>
+          <div class="stat-label">完了 / 件数</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="dot"></div>物件別内訳</div>
+        <div style="overflow-x:auto;"><table class="billing-table" id="billingTable">
+          <thead><tr><th>物件名</th><th>作業日</th><th>班</th><th>状態</th><th>単価</th></tr></thead>
+          <tbody id="billingTbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Property Modal -->
+<div class="modal-overlay" id="propertyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="propModalTitle">物件登録</div>
+      <button class="modal-close" onclick="closeModal('propertyModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>物件名 *</label>
+        <input type="text" class="form-control" id="propName" placeholder="例：サンビリーブ博多">
+      </div>
+      <div class="form-group">
+        <label>住所</label>
+        <input type="text" class="form-control" id="propAddress" placeholder="例：福岡市博多区比恵町X-X">
+      </div>
+      <div class="form-group">
+        <label>管理会社</label>
+        <input type="text" class="form-control" id="propManagement" placeholder="例：〇〇プロパティ">
+      </div>
+      <div class="form-group">
+        <label>担当者名</label>
+        <input type="text" class="form-control" id="propContact" placeholder="例：田中様">
+      </div>
+      <div class="form-group">
+        <label>連絡先</label>
+        <input type="text" class="form-control" id="propPhone" placeholder="例：092-XXX-XXXX">
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label>作業頻度</label>
+          <select class="form-control" id="propFreq" onchange="updateFreqOptions()">
+            <option value="monthly">月1回</option>
+            <option value="bimonthly">偶数月（2,4,6,8,10,12月）</option>
+            <option value="quarterly">3ヶ月に1回</option>
+            <option value="custom">その他</option>
+          </select>
+        </div>
+        <div class="form-group" id="freqMonthGroup" style="display:none;">
+          <label>基準月</label>
+          <select class="form-control" id="propFreqStartMonth">
+            <option value="1">1月スタート</option>
+            <option value="2">2月スタート</option>
+            <option value="3">3月スタート</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>通常作業日（毎月）</label>
+        <input type="number" class="form-control" id="propDay" placeholder="例：15（毎月15日）" min="1" max="31">
+      </div>
+      <div class="form-group">
+        <label>1回あたり単価（円）</label>
+        <input type="number" class="form-control" id="propPrice" placeholder="例：50000" min="0" step="1000">
+      </div>
+      <div class="form-group">
+        <label>必要人員数</label>
+        <select class="form-control" id="propStaffCount">
+          <option value="2">2名（正社員1＋応援1）</option>
+          <option value="3">3名</option>
+          <option value="4">4名</option>
+          <option value="1">1名（正社員のみ）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>担当班</label>
+        <select class="form-control" id="propTeam">
+          <option value="A">A班</option>
+          <option value="B">B班</option>
+          <option value="auto">自動割り振り</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>作業内容</label>
+        <div class="tool-check-list" id="workTypeList">
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="bed_walk">床洗浄ワックス</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="carpet">カーペット清掃</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="glass">ガラス清掃</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="facade">外壁清掃</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="grease">グリストラップ</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="parking">駐車場清掃</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="water">貯水槽清掃</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="patrol">巡回清掃</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>必要道具・機材</label>
+        <div class="tool-check-list" id="equipList">
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="polisher">ポリッシャー</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="wet_vac">ウェットバキューム</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="dry_vac">ドライバキューム</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="scrubber">スクラバー</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="ladder">脚立・はしご</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="high_pressure">高圧洗浄機</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="truck">2tトラック</label>
+          <label class="tool-check" onclick="toggleCheck(this)"><input type="checkbox" value="van">バン</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>⭐ 特記事項</label>
+        <textarea class="form-control" id="propNotes" placeholder="例：入館証が必要。カードは事務所で受け取り。鍵番号：A-023。高所作業あり要注意。"></textarea>
+      </div>
+      <div class="form-group">
+        <label>下請け依頼期限（作業X日前）</label>
+        <input type="number" class="form-control" id="propAlertDays" value="14" min="1" max="60">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('propertyModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveProperty()">💾 保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Add Modal -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">現場スケジュール追加</div>
+      <button class="modal-close" onclick="closeModal('scheduleModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>物件</label>
+        <select class="form-control" id="schedProp" onchange="fillScheduleFromProp()">
+          <option value="">物件を選択...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>作業日</label>
+        <input type="date" class="form-control" id="schedDate">
+      </div>
+      <div class="form-group">
+        <label>担当班</label>
+        <select class="form-control" id="schedTeam">
+          <option value="A">A班</option>
+          <option value="B">B班</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>下請け必要</label>
+        <select class="form-control" id="schedNeedSub">
+          <option value="yes">必要</option>
+          <option value="no">不要</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ステータス</label>
+        <select class="form-control" id="schedStatus">
+          <option value="pending">未確定</option>
+          <option value="confirmed">確定</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>備考</label>
+        <textarea class="form-control" id="schedNote" placeholder="当日の特記事項など..."></textarea>
+      </div>
+    </div>
+    <div id="schedPropNotes" style="display:none;margin-top:12px;" class="alert-item warn">
+      <div class="alert-label">⭐ 物件特記事項</div>
+      <div id="schedPropNotesText"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('scheduleModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveSchedule()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Detail Modal -->
+<div class="modal-overlay" id="schedDetailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">現場詳細</div>
+      <button class="modal-close" onclick="closeModal('schedDetailModal')">×</button>
+    </div>
+    <div id="detailContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-danger btn-sm" id="detailDeleteBtn">🗑 削除</button>
+      <button class="btn btn-secondary" onclick="closeModal('schedDetailModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- Staff Modal -->
+<div class="modal-overlay" id="staffModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">スタッフ登録</div>
+      <button class="modal-close" onclick="closeModal('staffModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>氏名 *</label>
+        <input type="text" class="form-control" id="staffName" placeholder="例：山田 太郎">
+      </div>
+      <div class="form-group">
+        <label>班</label>
+        <select class="form-control" id="staffTeam">
+          <option value="A">A班</option>
+          <option value="B">B班</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>雇用形態</label>
+        <select class="form-control" id="staffType">
+          <option value="fulltime">正社員</option>
+          <option value="parttime">パート</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>連絡先</label>
+        <input type="text" class="form-control" id="staffPhone" placeholder="090-XXXX-XXXX">
+      </div>
+      <div class="form-group">
+        <label>備考</label>
+        <textarea class="form-control" id="staffNote" placeholder="保有資格、注意事項など"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('staffModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveStaff()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub Request Modal -->
+<div class="modal-overlay" id="subModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">下請け依頼追加</div>
+      <button class="modal-close" onclick="closeModal('subModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>対象スケジュール</label>
+        <select class="form-control" id="subSchedule"></select>
+      </div>
+      <div class="form-group">
+        <label>下請け会社</label>
+        <select class="form-control" id="subCompany"></select>
+      </div>
+      <div class="form-group">
+        <label>依頼人数</label>
+        <input type="number" class="form-control" id="subCount" value="1" min="1">
+      </div>
+      <div class="form-group">
+        <label>依頼方法</label>
+        <select class="form-control" id="subMethod">
+          <option value="line">LINE</option>
+          <option value="phone">電話</option>
+          <option value="email">メール</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ステータス</label>
+        <select class="form-control" id="subReqStatus">
+          <option value="pending">未依頼</option>
+          <option value="requested">依頼済み</option>
+          <option value="confirmed">確定</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>メモ</label>
+        <textarea class="form-control" id="subNote" placeholder="連絡内容や条件など"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('subModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveSub()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub Company Modal -->
+<div class="modal-overlay" id="subCompanyModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">下請け会社登録</div>
+      <button class="modal-close" onclick="closeModal('subCompanyModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>会社名 *</label>
+        <input type="text" class="form-control" id="subCoName" placeholder="例：〇〇サービス">
+      </div>
+      <div class="form-group">
+        <label>担当者</label>
+        <input type="text" class="form-control" id="subCoPerson" placeholder="例：佐藤様">
+      </div>
+      <div class="form-group">
+        <label>電話</label>
+        <input type="text" class="form-control" id="subCoPhone">
+      </div>
+      <div class="form-group">
+        <label>LINE / メール</label>
+        <input type="text" class="form-control" id="subCoContact" placeholder="LINE ID or メールアドレス">
+      </div>
+      <div class="form-group">
+        <label>得意作業</label>
+        <input type="text" class="form-control" id="subCoSkill" placeholder="例：床清掃、外壁清掃">
+      </div>
+      <div class="form-group">
+        <label>備考</label>
+        <textarea class="form-control" id="subCoNote"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('subCompanyModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveSubCompany()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- LINE Template Modal -->
+<div class="modal-overlay" id="lineTemplateModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📋 LINE依頼テンプレート</div>
+      <button class="modal-close" onclick="closeModal('lineTemplateModal')">×</button>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:16px;font-size:13px;line-height:1.8;white-space:pre-wrap;" id="lineTemplateText"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('lineTemplateModal')">閉じる</button>
+      <button class="btn btn-primary" id="lineCopyBtn" onclick="copyLineTemplate()">📋 LINEにコピー</button>
+    </div>
+  </div>
+</div>
+
+<!-- Next Month Preview Modal -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title" id="previewTitle">来月プレビュー</div>
+      <button class="modal-close" onclick="closeModal('previewModal')">×</button>
+    </div>
+    <div id="previewContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('previewModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 認証 =====
+const DEFAULT_PASSWORD = 'ecopro';
+
+function checkAuth() {
+  const authed = sessionStorage.getItem('ecopro_auth');
+  if (authed === '1') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+  }
+}
+
+function doLogin() {
+  const input = document.getElementById('loginInput').value;
+  const stored = localStorage.getItem('ecopro_password') || DEFAULT_PASSWORD;
+  if (input === stored) {
+    sessionStorage.setItem('ecopro_auth', '1');
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('loginInput').value = '';
+    document.getElementById('loginError').textContent = '';
+  } else {
+    document.getElementById('loginError').textContent = 'パスワードが違います';
+    document.getElementById('loginInput').value = '';
+    document.getElementById('loginInput').focus();
+  }
+}
+
+function doLogout() {
+  if (!confirm('ログアウトしますか？')) return;
+  sessionStorage.removeItem('ecopro_auth');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginInput').focus();
+}
+
+function changePassword() {
+  const current = prompt('現在のパスワードを入力してください：');
+  const stored = localStorage.getItem('ecopro_password') || DEFAULT_PASSWORD;
+  if (current !== stored) { alert('現在のパスワードが違います'); return; }
+  const newPw = prompt('新しいパスワードを入力してください：');
+  if (!newPw) return;
+  const confirm2 = prompt('もう一度入力してください：');
+  if (newPw !== confirm2) { alert('パスワードが一致しません'); return; }
+  localStorage.setItem('ecopro_password', newPw);
+  alert('パスワードを変更しました');
+}
+
+// ===== STATE =====
+let state = {
+  currentYear: 2026,
+  currentMonth: 5,
+  currentView: 'calendar',
+  properties: [],
+  schedules: [],
+  staff: [],
+  subCompanies: [],
+  subRequests: [],
+  editingPropId: null,
+};
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyD3UA9MnsWb8NStTRjPjySKyFbtQx1iU_8",
+  authDomain: "ecopro-schedule.firebaseapp.com",
+  projectId: "ecopro-schedule",
+  storageBucket: "ecopro-schedule.firebasestorage.app",
+  messagingSenderId: "244165144454",
+  appId: "1:244165144454:web:fb3548dc05723be8b78607"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const DOC_REF = db.collection('ecopro').doc('shared');
+
+let _syncUnsubscribe = null;
+let _ignoreNextSnapshot = false;
+
+function setSyncBadge(mode, text) {
+  const badge = document.getElementById('syncBadge');
+  const label = document.getElementById('syncText');
+  if (!badge || !label) return;
+  badge.className = 'sync-badge ' + mode;
+  label.textContent = text;
+}
+
+// ===== STORAGE =====
+function saveState() {
+  // Always keep localStorage as offline fallback
+  try { localStorage.setItem('ecopro_state', JSON.stringify(state)); } catch(e) {}
+  // Write to Firestore (skip editingPropId – it's UI-only)
+  setSyncBadge('saving', '保存中…');
+  const payload = {
+    properties:   state.properties,
+    schedules:    state.schedules,
+    staff:        state.staff,
+    subCompanies: state.subCompanies,
+    subRequests:  state.subRequests,
+    updatedAt:    firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  _ignoreNextSnapshot = true;
+  DOC_REF.set(payload, { merge: true })
+    .then(() => setSyncBadge('synced', '同期済み'))
+    .catch(err => {
+      console.error('Firestore write error', err);
+      setSyncBadge('offline', 'オフライン');
+    });
+}
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('ecopro_state');
+    if (s) {
+      const loaded = JSON.parse(s);
+      Object.assign(state, loaded);
+    }
+  } catch(e) {}
+}
+
+function startRealtimeSync() {
+  if (_syncUnsubscribe) _syncUnsubscribe();
+  _syncUnsubscribe = DOC_REF.onSnapshot({ includeMetadataChanges: true }, snapshot => {
+    // Skip our own writes (hasPendingWrites = true means it's the local echo)
+    if (snapshot.metadata.hasPendingWrites) return;
+    if (_ignoreNextSnapshot) { _ignoreNextSnapshot = false; return; }
+    if (!snapshot.exists) return;
+    const data = snapshot.data();
+    const keys = ['properties','schedules','staff','subCompanies','subRequests'];
+    let changed = false;
+    keys.forEach(k => {
+      if (data[k] !== undefined) {
+        state[k] = data[k];
+        changed = true;
+      }
+    });
+    if (changed) {
+      // Persist locally and re-render
+      try { localStorage.setItem('ecopro_state', JSON.stringify(state)); } catch(e) {}
+      renderAll();
+    }
+    setSyncBadge('synced', '同期済み');
+  }, err => {
+    console.error('Firestore listen error', err);
+    setSyncBadge('offline', 'オフライン');
+  });
+}
+
+// ===== INIT =====
+function init() {
+  setSyncBadge('loading', '接続中…');
+  // Load from Firestore first; fall back to localStorage if offline
+  DOC_REF.get().then(snapshot => {
+    if (snapshot.exists) {
+      const data = snapshot.data();
+      const keys = ['properties','schedules','staff','subCompanies','subRequests'];
+      keys.forEach(k => { if (data[k] !== undefined) state[k] = data[k]; });
+      try { localStorage.setItem('ecopro_state', JSON.stringify(state)); } catch(e) {}
+    } else {
+      // First-ever launch – load from localStorage or sample data
+      loadState();
+      if (state.properties.length === 0) loadSampleData();
+      // Push sample/local data to Firestore so all users start with it
+      saveState();
+    }
+    setSyncBadge('synced', '同期済み');
+    startRealtimeSync();
+    renderAll();
+    if (localStorage.getItem('ecopro_notif') === '1') checkDeadlineNotifications();
+    if (localStorage.getItem('ecopro_notif') === '1') {
+      const btn = document.getElementById('notifBtn');
+      if (btn) btn.textContent = '🔔✓';
+    }
+  }).catch(err => {
+    console.error('Firestore initial load error', err);
+    setSyncBadge('offline', 'オフライン');
+    // Offline fallback – still render from localStorage
+    loadState();
+    if (state.properties.length === 0) loadSampleData();
+    renderAll();
+  });
+}
+
+function loadSampleData() {
+  state.properties = [
+    { id: 'p1', name: 'サンビリーブ博多', address: '福岡市博多区比恵町1-1', management: '博多プロパティ', contact: '田中様', phone: '092-111-2222', freq: 'monthly', day: 10, staffCount: 2, team: 'A', workTypes: ['bed_walk','patrol'], equipment: ['polisher','wet_vac'], notes: '入館証必要。カード番号：A-023。エレベーター使用可。', alertDays: 14, freqStartMonth: 1 },
+    { id: 'p2', name: 'パシフィック箱崎Ⅶ', address: '福岡市東区箱崎2-3', management: 'パシフィック管理', contact: '山本様', phone: '092-333-4444', freq: 'monthly', day: 12, staffCount: 2, team: 'B', workTypes: ['floor','glass'], equipment: ['dry_vac','ladder'], notes: '高所作業あり。ヘルメット着用必須。', alertDays: 14, freqStartMonth: 1 },
+    { id: 'p3', name: 'グランツ大橋', address: '福岡市南区大橋1-5', management: '南福岡管理', contact: '鈴木様', phone: '092-555-6666', freq: 'bimonthly', day: 20, staffCount: 2, team: 'A', workTypes: ['carpet','parking'], equipment: ['scrubber'], notes: '', alertDays: 21, freqStartMonth: 2 },
+    { id: 'p4', name: '春日マンション', address: '春日市春日原2-10', management: '春日不動産', contact: '佐藤様', phone: '092-777-8888', freq: 'quarterly', day: 8, staffCount: 3, team: 'B', workTypes: ['grease','parking'], equipment: ['high_pressure','truck'], notes: 'グリストラップ清掃。廃液処理業者との同行が必要。', alertDays: 21, freqStartMonth: 1 },
+  ];
+  state.staff = [
+    { id: 's1', name: '田村 浩二', team: 'A', type: 'fulltime', phone: '090-1111-2222', note: '主任' },
+    { id: 's2', name: '中村 健', team: 'B', type: 'fulltime', phone: '090-3333-4444', note: '' },
+  ];
+  state.subCompanies = [
+    { id: 'sc1', name: '九州クリーンサービス', person: '松田様', phone: '092-100-2000', contact: 'LINE: kyushu_clean', skill: '床清掃全般', note: '' },
+    { id: 'sc2', name: 'ハウスサポート福岡', person: '上田様', phone: '092-200-3000', contact: '電話のみ', skill: '外壁・高所作業', note: '土日不可' },
+  ];
+  state.schedules = generateSchedulesForMonth(2026, 5);
+  state.subRequests = [
+    { id: 'sr1', scheduleId: state.schedules[0]?.id || '', companyId: 'sc1', count: 1, method: 'line', status: 'requested', note: '' },
+    { id: 'sr2', scheduleId: state.schedules[1]?.id || '', companyId: 'sc2', count: 1, method: 'phone', status: 'pending', note: '' },
+  ];
+  saveState();
+}
+
+// ===== GENERATE SCHEDULES =====
+function generateSchedulesForMonth(year, month) {
+  const generated = [];
+  state.properties.forEach(prop => {
+    if (!shouldWorkThisMonth(prop, year, month)) return;
+    let day = prop.day || 15;
+    let date = new Date(year, month - 1, day);
+    // Slide weekends to next Monday
+    while (date.getDay() === 0 || date.getDay() === 6) {
+      date.setDate(date.getDate() + 1);
+    }
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    generated.push({
+      id: `sch_${prop.id}_${year}_${month}`,
+      propId: prop.id,
+      date: dateStr,
+      team: prop.team === 'auto' ? (generated.length % 2 === 0 ? 'A' : 'B') : prop.team,
+      needSub: prop.staffCount >= 2,
+      status: 'pending',
+      note: '',
+      completed: false,
+      photos: [],
+    });
+  });
+  return generated;
+}
+
+// BUG FIX #1: quarterly modulo for negative JS values
+function shouldWorkThisMonth(prop, year, month) {
+  if (prop.freq === 'monthly') return true;
+  if (prop.freq === 'bimonthly') return month % 2 === 0;
+  if (prop.freq === 'quarterly') {
+    const start = prop.freqStartMonth || 1;
+    return (((month - start) % 3) + 3) % 3 === 0;
+  }
+  return true;
+}
+
+function autoGenerate() {
+  const existing = state.schedules.filter(s => {
+    const d = new Date(s.date);
+    return d.getFullYear() === state.currentYear && d.getMonth() + 1 === state.currentMonth;
+  });
+  const existingPropIds = existing.map(s => s.propId);
+  const newSched = generateSchedulesForMonth(state.currentYear, state.currentMonth);
+  const toAdd = newSched.filter(s => !existingPropIds.includes(s.propId));
+  if (toAdd.length === 0) {
+    alert('この月のスケジュールは既に全て生成済みです。');
+    return;
+  }
+  state.schedules = [...state.schedules, ...toAdd];
+  saveState();
+  renderCalendar();
+  renderScheduleList();
+  renderSidebar();
+  alert(`${toAdd.length}件のスケジュールを自動生成しました。`);
+}
+
+// ===== NAVIGATION =====
+// BUG FIX #5: pass btn explicitly instead of using global event
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'properties') renderProperties();
+  if (name === 'staff') renderStaff();
+  if (name === 'subcontractor') { renderSubRequests(); renderSubCompanies(); }
+  if (name === 'today') renderTodaySummary();
+  if (name === 'billing') renderBilling();
+}
+
+function showInnerTab(id, btn) {
+  document.querySelectorAll('.inner-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.inner-page').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`inner-${id}`).classList.add('active');
+}
+
+function changeMonth(delta) {
+  state.currentMonth += delta;
+  if (state.currentMonth > 12) { state.currentMonth = 1; state.currentYear++; }
+  if (state.currentMonth < 1) { state.currentMonth = 12; state.currentYear--; }
+  renderMonthDisplay();
+  renderCalendar();
+  renderScheduleList();
+  renderSidebar();
+  renderBilling();
+}
+
+function switchView(view, btn) {
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.currentView = view;
+  document.getElementById('calendarView').style.display = view === 'calendar' ? 'block' : 'none';
+  document.getElementById('listView').style.display = view === 'list' ? 'block' : 'none';
+}
+
+// ===== RENDER =====
+function renderAll() {
+  renderMonthDisplay();
+  renderCalendar();
+  renderScheduleList();
+  renderSidebar();
+  renderProperties();
+  renderStaff();
+  renderSubRequests();
+  renderSubCompanies();
+  updateStats();
+  renderTodaySummary();
+  renderBilling();
+  populateMonthFilter();
+}
+
+function renderMonthDisplay() {
+  const md = document.getElementById('monthDisplay');
+  const st = document.getElementById('scheduleTitle');
+  const text = `${state.currentYear}年${state.currentMonth}月`;
+  if (md) md.textContent = text;
+  if (st) st.textContent = `${text} 現場スケジュール`;
+}
+
+function getMonthSchedules() {
+  return state.schedules.filter(s => {
+    const d = new Date(s.date);
+    return d.getFullYear() === state.currentYear && d.getMonth() + 1 === state.currentMonth;
+  });
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('calendarGrid');
+  if (!grid) return;
+  const year = state.currentYear, month = state.currentMonth;
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const lastDate = new Date(year, month, 0).getDate();
+  const dayNames = ['日','月','火','水','木','金','土'];
+  const today = new Date();
+
+  let html = `<div class="schedule-grid">`;
+  html += `<div class="sg-header"></div>`;
+  dayNames.forEach((d, i) => {
+    const cls = i === 0 ? 'sun' : i === 6 ? 'sat' : '';
+    html += `<div class="sg-header ${cls}">${d}</div>`;
+  });
+
+  // BUG FIX #2: use firstCellOfRow to determine break condition
+  for (let row = 0; row < 6; row++) {
+    const firstCellOfRow = row * 7 - firstDay + 1;
+    if (firstCellOfRow > lastDate) break;
+
+    html += `<div class="sg-date" style="grid-column:1;align-self:start;margin-top:2px;"></div>`;
+
+    for (let col = 0; col < 7; col++) {
+      const cellDate = row * 7 + col - firstDay + 1;
+      if (cellDate < 1 || cellDate > lastDate) {
+        html += `<div class="sg-cell" style="opacity:0.2;"></div>`;
+        continue;
+      }
+      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(cellDate).padStart(2,'0')}`;
+      const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === cellDate;
+      const isWeekend = col === 0 || col === 6;
+      const dayScheds = state.schedules.filter(s => s.date === dateStr);
+
+      html += `<div class="sg-cell ${isWeekend ? 'weekend' : ''}" onclick="openAddScheduleForDate('${dateStr}')">`;
+      html += `<div style="font-size:11px;font-weight:700;color:${isToday ? 'var(--accent)' : 'var(--text3)'};margin-bottom:2px;">${cellDate}</div>`;
+      dayScheds.forEach(s => {
+        const prop = state.properties.find(p => p.id === s.propId);
+        if (!prop) return;
+        const hasSub = state.subRequests.find(r => r.scheduleId === s.id);
+        // NEW chip class logic per spec
+        let chipClass;
+        if (!s.needSub) {
+          chipClass = s.team === 'A' ? 'teamA' : 'teamB';
+        } else if (!hasSub) {
+          chipClass = 'sub-alert';
+        } else if (hasSub.status === 'pending') {
+          chipClass = 'sub-pending';
+        } else if (hasSub.status === 'requested') {
+          chipClass = 'sub-requested';
+        } else {
+          chipClass = 'sub-confirmed';
+        }
+        const icon = s.completed ? '✅' : (!hasSub && s.needSub ? '⚠' : hasSub?.status === 'pending' ? '⚠' : hasSub?.status === 'requested' ? '📞' : hasSub?.status === 'confirmed' ? '✓' : '');
+        const completedClass = s.completed ? ' completed' : '';
+        html += `<div class="job-chip ${chipClass}${completedClass}" onclick="event.stopPropagation();openScheduleDetail('${s.id}')" title="${prop.name}">${icon} ${prop.name}</div>`;
+      });
+      html += `</div>`;
+    }
+  }
+  html += `</div>`;
+  grid.innerHTML = html;
+}
+
+function renderScheduleList() {
+  const el = document.getElementById('scheduleListInner');
+  if (!el) return;
+  const scheds = getMonthSchedules().sort((a, b) => a.date.localeCompare(b.date));
+  if (scheds.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">この月のスケジュールがありません</div></div>`;
+    return;
+  }
+  let html = `<table class="sub-table"><thead><tr><th>作業日</th><th>曜日</th><th>物件名</th><th>班</th><th>下請け</th><th>ステータス</th><th>完了</th><th>操作</th></tr></thead><tbody>`;
+  scheds.forEach(s => {
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    const d = new Date(s.date);
+    const days = ['日','月','火','水','木','金','土'];
+    const dayName = days[d.getDay()];
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const sub = state.subRequests.find(r => r.scheduleId === s.id);
+    const subCo = sub ? state.subCompanies.find(c => c.id === sub.companyId) : null;
+    const statusMap = { pending: ['status-none','未確定'], confirmed: ['status-confirmed','確定済'] };
+    const [sdot, slabel] = statusMap[s.status] || ['status-none','未確定'];
+
+    html += `<tr style="${s.completed ? 'opacity:0.6;' : ''}">
+      <td><strong>${s.date}</strong></td>
+      <td style="color:${isWeekend ? 'var(--accent3)' : 'inherit'}">${dayName}</td>
+      <td>
+        <strong>${s.completed ? '<s>' : ''}${prop.name}${s.completed ? '</s>' : ''}</strong>
+        ${prop.notes ? `<div class="special-tag" style="margin-top:3px;">⭐ 特記あり</div>` : ''}
+      </td>
+      <td><span class="badge ${s.team === 'A' ? 'badge-blue' : 'badge-green'}">${s.team}班</span></td>
+      <td>${sub ? `<span class="status-dot ${sub.status === 'confirmed' ? 'status-confirmed' : sub.status === 'requested' ? 'status-requested' : 'status-pending'}"></span>${subCo ? subCo.name : '—'}` : `<span style="color:var(--text3)">—</span>`}</td>
+      <td><span class="status-dot ${sdot}"></span>${slabel}</td>
+      <td><button class="complete-btn ${s.completed ? 'done' : 'undone'}" onclick="toggleComplete('${s.id}')">${s.completed ? '✅ 完了' : '○ 未完了'}</button></td>
+      <td><button class="btn btn-secondary btn-sm" onclick="openScheduleDetail('${s.id}')">詳細</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+function renderSidebar() {
+  updateStats();
+  renderAlerts();
+}
+
+function renderAlerts() {
+  const alertEl = document.getElementById('alertList');
+  if (!alertEl) return;
+  const today = new Date();
+  const alerts = [];
+  const scheds = getMonthSchedules();
+  scheds.forEach(s => {
+    if (!s.needSub) return;
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    const sub = state.subRequests.find(r => r.scheduleId === s.id && r.status === 'confirmed');
+    const workDate = new Date(s.date);
+    const daysLeft = Math.ceil((workDate - today) / 86400000);
+    const deadline = prop.alertDays || 14;
+    if (!sub) {
+      if (daysLeft <= deadline && daysLeft > 0) {
+        alerts.push({ type: daysLeft <= 3 ? 'danger' : 'warn', text: `${prop.name} — 残${daysLeft}日で依頼期限` });
+      } else if (daysLeft > 0) {
+        alerts.push({ type: 'info', text: `${prop.name} — 未依頼 (${s.date})` });
+      }
+    }
+  });
+  if (alerts.length === 0) {
+    alertEl.innerHTML = `<div class="alert-item ok"><div class="alert-label">✓ 問題なし</div>全件対応済みです</div>`;
+    return;
+  }
+  alertEl.innerHTML = alerts.slice(0, 5).map(a => `
+    <div class="alert-item ${a.type === 'danger' ? '' : a.type === 'warn' ? 'warn' : ''}">
+      <div class="alert-label">${a.type === 'danger' ? '🚨 期限切迫' : a.type === 'warn' ? '⚠ 要対応' : '❗ 未依頼'}</div>
+      ${a.text}
+    </div>`).join('');
+  document.getElementById('alertCount').textContent = alerts.length;
+}
+
+function updateStats() {
+  const scheds = getMonthSchedules();
+  const totalJobsEl = document.getElementById('totalJobs');
+  if (totalJobsEl) totalJobsEl.textContent = scheds.length;
+  const props = state.properties;
+  const propCountEl = document.getElementById('propCount');
+  if (propCountEl) propCountEl.textContent = props.length;
+  const propMonthlyEl = document.getElementById('propMonthly');
+  if (propMonthlyEl) propMonthlyEl.textContent = props.filter(p => p.freq === 'monthly').length;
+  const propQuarterlyEl = document.getElementById('propQuarterly');
+  if (propQuarterlyEl) propQuarterlyEl.textContent = props.filter(p => p.freq === 'quarterly').length;
+  const propBimonthlyEl = document.getElementById('propBimonthly');
+  if (propBimonthlyEl) propBimonthlyEl.textContent = props.filter(p => p.freq === 'bimonthly').length;
+}
+
+// ===== TODAY SUMMARY =====
+function renderTodaySummary() {
+  const el = document.getElementById('todaySummary');
+  const titleEl = document.getElementById('todayTitle');
+  if (!el) return;
+  const today = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  if (titleEl) {
+    titleEl.textContent = `今日の現場 — ${today.getMonth()+1}月${today.getDate()}日（${days[today.getDay()]}）`;
+  }
+  const todayScheds = state.schedules.filter(s => s.date === todayStr);
+  if (todayScheds.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🌟</div><div class="empty-text">今日の現場はありません</div></div>`;
+    return;
+  }
+  // Group by team
+  const teams = ['A', 'B'];
+  let html = '';
+  teams.forEach(team => {
+    const teamScheds = todayScheds.filter(s => s.team === team);
+    if (teamScheds.length === 0) return;
+    html += `<div class="today-team-section">
+      <div class="today-team-label ${team.toLowerCase()}">${team}班</div>`;
+    teamScheds.forEach(s => {
+      const prop = state.properties.find(p => p.id === s.propId);
+      if (!prop) return;
+      const sub = state.subRequests.find(r => r.scheduleId === s.id);
+      const subCo = sub ? state.subCompanies.find(c => c.id === sub.companyId) : null;
+      let subStatusHtml = '';
+      if (s.needSub) {
+        if (!sub) {
+          subStatusHtml = `<span class="badge badge-red">⚠ 下請け未手配</span>`;
+        } else if (sub.status === 'pending') {
+          subStatusHtml = `<span class="badge badge-yellow">⚠ 未依頼 (${subCo?.name || '未設定'})</span>`;
+        } else if (sub.status === 'requested') {
+          subStatusHtml = `<span class="badge badge-blue">📞 依頼済み (${subCo?.name || '未設定'})</span>`;
+        } else {
+          subStatusHtml = `<span class="badge badge-green">✓ 確定 (${subCo?.name || '未設定'})</span>`;
+        }
+      }
+      html += `<div class="today-job-card">
+        <div class="today-prop-name">${prop.name}</div>
+        ${prop.address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(prop.address)}" target="_blank" class="today-address-btn">🗺 ${prop.address}</a>` : ''}
+        ${prop.notes ? `<div class="today-notes-box"><div class="today-notes-label">⭐ 特記事項</div><div>${prop.notes}</div></div>` : ''}
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          ${prop.workTypes && prop.workTypes.length > 0 ? prop.workTypes.map(w => `<span class="tool-tag">${workNames[w] || w}</span>`).join('') : ''}
+          ${prop.equipment && prop.equipment.length > 0 ? prop.equipment.map(e => `<span class="tool-tag">🔧 ${equipNames[e] || e}</span>`).join('') : ''}
+        </div>
+        <div class="flex gap-8 items-center flex-wrap">
+          ${subStatusHtml}
+          ${s.status === 'confirmed' ? '<span class="badge badge-green">確定済</span>' : '<span class="badge badge-yellow">未確定</span>'}
+        </div>
+        ${s.note ? `<div style="margin-top:10px;font-size:13px;color:var(--text2);">📝 ${s.note}</div>` : ''}
+        <div style="margin-top:12px;">
+          <button class="complete-btn ${s.completed ? 'done' : 'undone'}" style="padding:8px 20px;font-size:14px;" onclick="toggleComplete('${s.id}');renderTodaySummary();">${s.completed ? '✅ 作業完了済み' : '○ 完了にする'}</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ===== PROPERTIES =====
+function renderProperties() {
+  const list = document.getElementById('propList');
+  if (!list) return;
+  const search = (document.getElementById('propSearch')?.value || '').toLowerCase();
+  const freqF = document.getElementById('propFreqFilter')?.value || '';
+  let props = state.properties.filter(p => {
+    if (search && !p.name.toLowerCase().includes(search)) return false;
+    if (freqF && p.freq !== freqF) return false;
+    return true;
+  });
+  if (props.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🏢</div><div class="empty-text">物件がありません</div></div>`;
+    return;
+  }
+  const freqLabel = { monthly: '月1回', bimonthly: '偶数月', quarterly: '3ヶ月', custom: 'その他' };
+  const freqClass = { monthly: 'freq-monthly', bimonthly: 'freq-bimonthly', quarterly: 'freq-quarterly', custom: 'freq-quarterly' };
+  list.innerHTML = props.map(p => `
+    <div class="prop-item" onclick="openPropertyModal('${p.id}')">
+      <div class="prop-freq ${freqClass[p.freq] || 'freq-monthly'}">${freqLabel[p.freq] || p.freq}</div>
+      <div class="prop-info">
+        <div class="prop-name">${p.name}</div>
+        <div class="prop-meta">
+          <span>📍 ${p.address || '未設定'}</span>
+          <span>👥 ${p.staffCount}名</span>
+          <span class="badge ${p.team === 'A' ? 'badge-blue' : p.team === 'B' ? 'badge-green' : 'badge-yellow'}">${p.team}班</span>
+          ${p.notes ? `<span class="special-tag">⭐ 特記あり</span>` : ''}
+        </div>
+        ${p.equipment && p.equipment.length > 0 ? `<div style="margin-top:4px;">${renderEquipTags(p.equipment)}</div>` : ''}
+      </div>
+      <div class="prop-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteProp('${p.id}')">🗑</button>
+      </div>
+    </div>`).join('');
+  updateStats();
+}
+
+const equipNames = { polisher:'ポリッシャー', wet_vac:'ウェットバキューム', dry_vac:'ドライバキューム', scrubber:'スクラバー', ladder:'脚立', high_pressure:'高圧洗浄機', truck:'2tトラック', van:'バン' };
+const workNames = { bed_walk:'床洗浄ワックス', carpet:'カーペット', glass:'ガラス清掃', facade:'外壁', grease:'グリスト', parking:'駐車場', water:'貯水槽', patrol:'巡回' };
+
+function renderEquipTags(equip) {
+  return equip.map(e => `<span class="tool-tag">🔧 ${equipNames[e] || e}</span>`).join('');
+}
+
+function filterProperties() { renderProperties(); }
+
+function openPropertyModal(id) {
+  state.editingPropId = id || null;
+  const prop = id ? state.properties.find(p => p.id === id) : null;
+  document.getElementById('propModalTitle').textContent = prop ? '物件編集' : '物件登録';
+  document.getElementById('propName').value = prop?.name || '';
+  document.getElementById('propAddress').value = prop?.address || '';
+  document.getElementById('propManagement').value = prop?.management || '';
+  document.getElementById('propContact').value = prop?.contact || '';
+  document.getElementById('propPhone').value = prop?.phone || '';
+  document.getElementById('propFreq').value = prop?.freq || 'monthly';
+  document.getElementById('propFreqStartMonth').value = prop?.freqStartMonth || 1;
+  document.getElementById('propDay').value = prop?.day || '';
+  document.getElementById('propStaffCount').value = prop?.staffCount || '2';
+  document.getElementById('propTeam').value = prop?.team || 'A';
+  document.getElementById('propNotes').value = prop?.notes || '';
+  document.getElementById('propPrice').value = prop?.price || '';
+  document.getElementById('propAlertDays').value = prop?.alertDays || 14;
+  updateFreqOptions();
+  // Reset checkboxes
+  document.querySelectorAll('#workTypeList .tool-check').forEach(el => {
+    const val = el.querySelector('input').value;
+    el.classList.toggle('checked', prop?.workTypes?.includes(val) || false);
+  });
+  document.querySelectorAll('#equipList .tool-check').forEach(el => {
+    const val = el.querySelector('input').value;
+    el.classList.toggle('checked', prop?.equipment?.includes(val) || false);
+  });
+  openModal('propertyModal');
+}
+
+function saveProperty() {
+  const name = document.getElementById('propName').value.trim();
+  if (!name) { alert('物件名を入力してください'); return; }
+  const workTypes = [...document.querySelectorAll('#workTypeList .tool-check.checked')].map(el => el.querySelector('input').value);
+  const equipment = [...document.querySelectorAll('#equipList .tool-check.checked')].map(el => el.querySelector('input').value);
+  const data = {
+    name,
+    address: document.getElementById('propAddress').value,
+    management: document.getElementById('propManagement').value,
+    contact: document.getElementById('propContact').value,
+    phone: document.getElementById('propPhone').value,
+    freq: document.getElementById('propFreq').value,
+    day: parseInt(document.getElementById('propDay').value) || 15,
+    staffCount: parseInt(document.getElementById('propStaffCount').value),
+    price: parseInt(document.getElementById('propPrice').value) || 0,
+    team: document.getElementById('propTeam').value,
+    workTypes,
+    equipment,
+    notes: document.getElementById('propNotes').value,
+    alertDays: parseInt(document.getElementById('propAlertDays').value) || 14,
+    freqStartMonth: parseInt(document.getElementById('propFreqStartMonth').value) || 1,
+  };
+  if (state.editingPropId) {
+    const idx = state.properties.findIndex(p => p.id === state.editingPropId);
+    if (idx !== -1) state.properties[idx] = { ...state.properties[idx], ...data };
+  } else {
+    data.id = 'p' + Date.now();
+    state.properties.push(data);
+  }
+  saveState();
+  renderProperties();
+  renderCalendar();
+  closeModal('propertyModal');
+}
+
+function deleteProp(id) {
+  if (!confirm('この物件を削除しますか？')) return;
+  state.properties = state.properties.filter(p => p.id !== id);
+  state.schedules = state.schedules.filter(s => s.propId !== id);
+  saveState();
+  renderAll();
+}
+
+// ===== SCHEDULE MODAL =====
+function populateScheduleSelect() {
+  const sel = document.getElementById('schedProp');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">物件を選択...</option>' + state.properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function openAddScheduleModal() {
+  populateScheduleSelect();
+  document.getElementById('schedDate').value = `${state.currentYear}-${String(state.currentMonth).padStart(2,'0')}-01`;
+  document.getElementById('schedNote').value = '';
+  document.getElementById('schedPropNotes').style.display = 'none';
+  openModal('scheduleModal');
+}
+
+function openAddScheduleForDate(dateStr) {
+  populateScheduleSelect();
+  document.getElementById('schedDate').value = dateStr;
+  document.getElementById('schedNote').value = '';
+  document.getElementById('schedPropNotes').style.display = 'none';
+  openModal('scheduleModal');
+}
+
+function fillScheduleFromProp() {
+  const propId = document.getElementById('schedProp').value;
+  const prop = state.properties.find(p => p.id === propId);
+  if (!prop) {
+    document.getElementById('schedPropNotes').style.display = 'none';
+    return;
+  }
+  document.getElementById('schedTeam').value = prop.team === 'auto' ? 'A' : prop.team;
+  document.getElementById('schedNeedSub').value = prop.staffCount >= 2 ? 'yes' : 'no';
+  if (prop.notes) {
+    document.getElementById('schedPropNotes').style.display = 'block';
+    document.getElementById('schedPropNotesText').textContent = prop.notes;
+  } else {
+    document.getElementById('schedPropNotes').style.display = 'none';
+  }
+}
+
+function saveSchedule() {
+  const propId = document.getElementById('schedProp').value;
+  if (!propId) { alert('物件を選択してください'); return; }
+  const date = document.getElementById('schedDate').value;
+  if (!date) { alert('作業日を入力してください'); return; }
+  const s = {
+    id: 'sch_' + Date.now(),
+    propId,
+    date,
+    team: document.getElementById('schedTeam').value,
+    needSub: document.getElementById('schedNeedSub').value === 'yes',
+    status: document.getElementById('schedStatus').value,
+    note: document.getElementById('schedNote').value,
+    completed: false,
+    photos: [],
+  };
+  state.schedules.push(s);
+  saveState();
+  renderCalendar();
+  renderScheduleList();
+  renderSidebar();
+  closeModal('scheduleModal');
+}
+
+function openScheduleDetail(id) {
+  const s = state.schedules.find(x => x.id === id);
+  if (!s) return;
+  const prop = state.properties.find(p => p.id === s.propId);
+  if (!prop) return;
+  const sub = state.subRequests.find(r => r.scheduleId === id);
+  const subCo = sub ? state.subCompanies.find(c => c.id === sub.companyId) : null;
+  const d = new Date(s.date);
+  const days = ['日','月','火','水','木','金','土'];
+
+  const canShowLineTemplate = s.needSub && (!sub || sub.status !== 'confirmed');
+
+  document.getElementById('detailTitle').textContent = `${prop.name} — ${s.date}(${days[d.getDay()]})`;
+  document.getElementById('detailContent').innerHTML = `
+    <div style="display:grid;gap:12px;">
+      <div class="flex gap-8 items-center" style="flex-wrap:wrap;">
+        <span class="badge ${s.team === 'A' ? 'badge-blue' : 'badge-green'}">${s.team}班</span>
+        <span class="badge ${s.status === 'confirmed' ? 'badge-green' : 'badge-yellow'}">${s.status === 'confirmed' ? '確定済' : '未確定'}</span>
+        <button class="complete-btn ${s.completed ? 'done' : 'undone'}" onclick="toggleComplete('${id}');openScheduleDetail('${id}')">${s.completed ? '✅ 完了済み（取り消す）' : '○ 完了にする'}</button>
+      </div>
+      <div>
+        <div class="text-muted text-sm" style="margin-bottom:4px;">📍 住所</div>
+        <div>${prop.address || '未設定'}</div>
+      </div>
+      ${prop.notes ? `<div style="background:rgba(247,183,49,0.08);border:1px solid rgba(247,183,49,0.25);border-radius:8px;padding:12px;">
+        <div style="color:#fac940;font-size:12px;font-weight:700;margin-bottom:4px;">⭐ 特記事項</div>
+        <div>${prop.notes}</div>
+      </div>` : ''}
+      ${prop.equipment && prop.equipment.length > 0 ? `<div>
+        <div class="text-muted text-sm" style="margin-bottom:6px;">🔧 必要道具</div>
+        ${renderEquipTags(prop.equipment)}
+      </div>` : ''}
+      ${prop.workTypes && prop.workTypes.length > 0 ? `<div>
+        <div class="text-muted text-sm" style="margin-bottom:6px;">🧹 作業内容</div>
+        ${prop.workTypes.map(w => `<span class="tool-tag">${workNames[w] || w}</span>`).join('')}
+      </div>` : ''}
+      <div>
+        <div class="text-muted text-sm" style="margin-bottom:6px;">🤝 下請け対応</div>
+        ${sub ? `<div class="flex items-center gap-8">
+          <span class="status-dot ${sub.status === 'confirmed' ? 'status-confirmed' : sub.status === 'requested' ? 'status-requested' : 'status-pending'}"></span>
+          ${subCo ? subCo.name : '未設定'} — ${sub.status === 'confirmed' ? '確定' : sub.status === 'requested' ? '依頼済み' : '未依頼'}
+          <button class="btn btn-secondary btn-sm" onclick="updateSubStatus('${sub.id}')">更新</button>
+        </div>` : (s.needSub ? `<div style="color:var(--accent3);">⚠ 下請け必要だが未設定</div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:6px;" onclick="closeModal('schedDetailModal');openSubModalForSchedule('${id}')">依頼を追加</button>` : '不要')}
+      </div>
+      ${canShowLineTemplate ? `<div>
+        <button class="btn btn-secondary btn-sm" onclick="generateLineTemplate('${id}')">📋 LINEテンプレ生成</button>
+      </div>` : ''}
+      <div>
+        <div class="text-muted text-sm" style="margin-bottom:6px;">📝 作業メモ</div>
+        <textarea id="detailMemoInput" class="form-control" placeholder="作業メモを入力…" style="min-height:70px;">${s.note || ''}</textarea>
+        <button class="btn btn-secondary btn-sm" style="margin-top:6px;" onclick="saveScheduleNote('${id}')">💾 メモを保存</button>
+      </div>
+      <div>
+        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(prop.address)}" target="_blank" class="btn btn-secondary btn-sm">🗺 Googleマップで確認</a>
+      </div>
+    </div>`;
+  // BUG FIX #3: also remove orphan subRequests on schedule delete
+  document.getElementById('detailDeleteBtn').onclick = () => {
+    if (confirm('このスケジュールを削除しますか？')) {
+      state.schedules = state.schedules.filter(x => x.id !== id);
+      state.subRequests = state.subRequests.filter(r => r.scheduleId !== id);
+      saveState();
+      renderCalendar();
+      renderScheduleList();
+      renderSidebar();
+      closeModal('schedDetailModal');
+    }
+  };
+  openModal('schedDetailModal');
+}
+
+function updateSubStatus(subId) {
+  const sub = state.subRequests.find(r => r.id === subId);
+  if (!sub) return;
+  const next = { pending: 'requested', requested: 'confirmed', confirmed: 'pending' };
+  sub.status = next[sub.status];
+  saveState();
+  closeModal('schedDetailModal');
+  renderCalendar();
+  renderScheduleList();
+  renderSubRequests();
+  renderSidebar();
+}
+
+// ===== 完了チェック =====
+function toggleComplete(id) {
+  const s = state.schedules.find(x => x.id === id);
+  if (!s) return;
+  s.completed = !s.completed;
+  saveState();
+  renderCalendar();
+  renderScheduleList();
+  renderSidebar();
+  renderBilling();
+}
+
+// ===== メモ保存 =====
+function saveScheduleNote(id) {
+  const s = state.schedules.find(x => x.id === id);
+  if (!s) return;
+  s.note = document.getElementById('detailMemoInput').value;
+  saveState();
+  const btn = event.target;
+  btn.textContent = '✓ 保存しました';
+  setTimeout(() => { btn.textContent = '💾 メモを保存'; }, 1500);
+}
+
+
+// ===== 請求管理 =====
+function renderBilling() {
+  const tbody = document.getElementById('billingTbody');
+  if (!tbody) return;
+  const scheds = getMonthSchedules().sort((a, b) => a.date.localeCompare(b.date));
+  let scheduledTotal = 0, completedTotal = 0, completedCount = 0;
+  let rows = '';
+  scheds.forEach(s => {
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    const price = prop.price || 0;
+    scheduledTotal += price;
+    if (s.completed) { completedTotal += price; completedCount++; }
+    rows += `<tr>
+      <td><strong>${prop.name}</strong></td>
+      <td>${s.date}</td>
+      <td><span class="badge ${s.team === 'A' ? 'badge-blue' : 'badge-green'}">${s.team}班</span></td>
+      <td>${s.completed ? '<span style="color:var(--accent2);">✅ 完了</span>' : '<span style="color:var(--text3);">未完了</span>'}</td>
+      <td style="font-family:\'JetBrains Mono\',monospace;text-align:right;">${price > 0 ? '¥' + price.toLocaleString() : '—'}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px;">この月のスケジュールがありません</td></tr>`;
+  const el1 = document.getElementById('billingCompleted');
+  const el2 = document.getElementById('billingScheduled');
+  const el3 = document.getElementById('billingRatio');
+  if (el1) el1.textContent = '¥' + completedTotal.toLocaleString();
+  if (el2) el2.textContent = '¥' + scheduledTotal.toLocaleString();
+  if (el3) el3.textContent = `${completedCount} / ${scheds.length}`;
+}
+
+function exportBillingCSV() {
+  const scheds = getMonthSchedules().sort((a, b) => a.date.localeCompare(b.date));
+  const rows = [['物件名','作業日','班','完了','単価']];
+  scheds.forEach(s => {
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    rows.push([prop.name, s.date, s.team + '班', s.completed ? '完了' : '未完了', prop.price || 0]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ecopro_請求_${state.currentYear}年${state.currentMonth}月.csv`;
+  a.click();
+}
+
+// ===== ブラウザ通知 =====
+function setupNotifications() {
+  if (!('Notification' in window)) { alert('このブラウザは通知に対応していません'); return; }
+  Notification.requestPermission().then(perm => {
+    const btn = document.getElementById('notifBtn');
+    if (perm === 'granted') {
+      if (btn) btn.textContent = '🔔✓';
+      localStorage.setItem('ecopro_notif', '1');
+      checkDeadlineNotifications();
+    } else {
+      if (btn) btn.textContent = '🔕';
+    }
+  });
+}
+
+function checkDeadlineNotifications() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const urgent = [], warn = [];
+  const scheds = state.schedules.filter(s => {
+    const d = new Date(s.date); d.setHours(0,0,0,0);
+    return d >= today;
+  });
+  scheds.forEach(s => {
+    if (!s.needSub || s.completed) return;
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    const hasSub = state.subRequests.find(r => r.scheduleId === s.id && r.status === 'confirmed');
+    if (hasSub) return;
+    const workDate = new Date(s.date); workDate.setHours(0,0,0,0);
+    const daysLeft = Math.round((workDate - today) / 86400000);
+    const deadline = prop.alertDays || 14;
+    if (daysLeft <= 3) urgent.push(`${prop.name}（残${daysLeft}日）`);
+    else if (daysLeft <= deadline) warn.push(prop.name);
+  });
+  if (urgent.length > 0) {
+    new Notification('🚨 えこぷろ：依頼期限切迫', {
+      body: urgent.join('\n'),
+      icon: ''
+    });
+  } else if (warn.length > 0) {
+    new Notification('⚠ えこぷろ：下請け未依頼あり', {
+      body: `${warn.length}件の未依頼があります`,
+      icon: ''
+    });
+  }
+}
+
+// ===== LINE TEMPLATE =====
+function generateLineTemplate(schedId) {
+  const s = state.schedules.find(x => x.id === schedId);
+  if (!s) return;
+  const prop = state.properties.find(p => p.id === s.propId);
+  if (!prop) return;
+  const d = new Date(s.date);
+  const days = ['日','月','火','水','木','金','土'];
+  const workTypeStr = (prop.workTypes || []).map(w => workNames[w] || w).join('・') || '清掃作業';
+  const template = `お世話になっております。えこぷろです。\n${d.getMonth()+1}月${d.getDate()}日（${days[d.getDay()]}）、${prop.name}の応援をお願いできますでしょうか。\n\n作業内容：${workTypeStr}\n集合場所：${prop.address || '物件前'}\n人数：${prop.staffCount - 1}名\n\nご確認のほどよろしくお願いいたします。`;
+  document.getElementById('lineTemplateText').textContent = template;
+  document.getElementById('lineCopyBtn').textContent = '📋 LINEにコピー';
+  openModal('lineTemplateModal');
+}
+
+function copyLineTemplate() {
+  const text = document.getElementById('lineTemplateText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('lineCopyBtn').textContent = '✓ コピー済み';
+    setTimeout(() => { document.getElementById('lineCopyBtn').textContent = '📋 LINEにコピー'; }, 2000);
+  });
+}
+
+// ===== NEXT MONTH PREVIEW =====
+function previewNextMonth() {
+  let pYear = state.currentYear, pMonth = state.currentMonth + 1;
+  if (pMonth > 12) { pMonth = 1; pYear++; }
+  const preview = generateSchedulesForMonth(pYear, pMonth);
+  const needSubCount = preview.filter(s => {
+    const p = state.properties.find(x => x.id === s.propId);
+    return p && p.staffCount >= 2;
+  }).length;
+
+  document.getElementById('previewTitle').textContent = `${pYear}年${pMonth}月 予定プレビュー`;
+  document.getElementById('previewContent').innerHTML = preview.length === 0
+    ? '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">予定なし</div></div>'
+    : `<div style="margin-bottom:12px;background:var(--surface2);border-radius:8px;padding:12px;">
+        <span style="color:var(--accent4);font-weight:700;">⚠ 下請け依頼が必要：${needSubCount}件</span>
+       </div>` + preview.map(s => {
+      const prop = state.properties.find(p => p.id === s.propId);
+      return `<div class="prop-item" style="cursor:default;margin-bottom:8px;">
+        <span class="badge ${s.team==='A'?'badge-blue':'badge-green'}">${s.team}班</span>
+        <div class="prop-info">
+          <div class="prop-name">${prop?.name||'不明'}</div>
+          <div class="prop-meta"><span>📅 ${s.date}</span>${(prop?.staffCount||0)>=2?'<span style="color:var(--accent3);">⚠ 下請け必要</span>':''}</div>
+        </div>
+      </div>`;
+    }).join('');
+  openModal('previewModal');
+}
+
+// ===== EXPORT / IMPORT =====
+function exportJSON() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ecopro_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const loaded = JSON.parse(ev.target.result);
+      if (!loaded.properties || !loaded.schedules) throw new Error('invalid');
+      Object.assign(state, loaded);
+      saveState();
+      renderAll();
+      populateMonthFilter();
+      alert('インポート完了しました');
+    } catch(err) { alert('ファイルが正しくありません'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function exportCSV() {
+  const scheds = getMonthSchedules().sort((a,b) => a.date.localeCompare(b.date));
+  const rows = [['作業日','曜日','物件名','住所','班','下請け会社','ステータス','特記事項']];
+  const days = ['日','月','火','水','木','金','土'];
+  scheds.forEach(s => {
+    const prop = state.properties.find(p => p.id === s.propId);
+    if (!prop) return;
+    const d = new Date(s.date);
+    const sub = state.subRequests.find(r => r.scheduleId === s.id);
+    const subCo = sub ? state.subCompanies.find(c => c.id === sub.companyId) : null;
+    rows.push([s.date, days[d.getDay()], prop.name, prop.address||'', s.team+'班', subCo?.name||'', s.status==='confirmed'?'確定':'未確定', prop.notes||'']);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const bom = '﻿';
+  const blob = new Blob([bom+csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ecopro_${state.currentYear}年${state.currentMonth}月.csv`;
+  a.click();
+}
+
+// ===== STAFF =====
+function renderStaff() {
+  const teamA = document.getElementById('teamA-list');
+  const teamB = document.getElementById('teamB-list');
+  if (!teamA) return;
+  const renderList = (team, el) => {
+    const members = state.staff.filter(s => s.team === team);
+    if (members.length === 0) {
+      el.innerHTML = `<div class="text-muted text-sm">未登録</div>`;
+      return;
+    }
+    el.innerHTML = members.map(s => `
+      <div class="flex items-center gap-8" style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">${s.name[0]}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;">${s.name}</div>
+          <div class="text-muted text-sm">${s.type === 'fulltime' ? '正社員' : 'パート'} ${s.note ? '/ ' + s.note : ''}</div>
+        </div>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteStaff('${s.id}')">🗑</button>
+      </div>`).join('');
+  };
+  renderList('A', teamA);
+  renderList('B', teamB);
+
+  // Workload
+  const workEl = document.getElementById('staffWorkload');
+  if (!workEl) return;
+  const scheds = getMonthSchedules();
+  const workload = {};
+  state.staff.forEach(s => workload[s.id] = { name: s.name, count: 0 });
+  scheds.forEach(s => {
+    const teamMembers = state.staff.filter(st => st.team === s.team);
+    teamMembers.forEach(m => { if (workload[m.id]) workload[m.id].count++; });
+  });
+  workEl.innerHTML = Object.values(workload).length === 0 ? '<div class="text-muted">スタッフ未登録</div>' :
+    Object.values(workload).map(w => `
+      <div class="flex items-center gap-12" style="padding:8px 0;border-bottom:1px solid rgba(46,51,80,0.5);">
+        <div style="flex:1;font-weight:700;">${w.name}</div>
+        <div style="background:var(--surface2);border-radius:8px;padding:4px 16px;font-weight:900;font-family:'JetBrains Mono',monospace;color:var(--accent);">${w.count}件</div>
+      </div>`).join('');
+}
+
+function openStaffModal() { openModal('staffModal'); }
+
+function saveStaff() {
+  const name = document.getElementById('staffName').value.trim();
+  if (!name) { alert('氏名を入力してください'); return; }
+  state.staff.push({
+    id: 's' + Date.now(),
+    name,
+    team: document.getElementById('staffTeam').value,
+    type: document.getElementById('staffType').value,
+    phone: document.getElementById('staffPhone').value,
+    note: document.getElementById('staffNote').value,
+  });
+  saveState();
+  renderStaff();
+  closeModal('staffModal');
+  ['staffName','staffPhone','staffNote'].forEach(id => document.getElementById(id).value = '');
+}
+
+function deleteStaff(id) {
+  if (!confirm('このスタッフを削除しますか？')) return;
+  state.staff = state.staff.filter(s => s.id !== id);
+  saveState();
+  renderStaff();
+}
+
+// ===== SUBCONTRACTOR =====
+function renderSubRequests() {
+  const tbody = document.getElementById('subTableBody');
+  if (!tbody) return;
+  const statusF = document.getElementById('subStatusFilter')?.value || '';
+  const monthF = document.getElementById('subMonthFilter')?.value || '';
+  let subs = state.subRequests.filter(r => {
+    if (statusF && r.status !== statusF) return false;
+    if (monthF) {
+      const s = state.schedules.find(x => x.id === r.scheduleId);
+      if (!s || !s.date.startsWith(monthF)) return false;
+    }
+    return true;
+  });
+  if (subs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3);">データがありません</td></tr>`;
+    return;
+  }
+  const statusLabel = { pending: ['status-pending','未依頼'], requested: ['status-requested','依頼済み'], confirmed: ['status-confirmed','確定'] };
+  const methodLabel = { line: 'LINE', phone: '電話', email: 'メール' };
+  tbody.innerHTML = subs.map(r => {
+    const s = state.schedules.find(x => x.id === r.scheduleId);
+    const prop = s ? state.properties.find(p => p.id === s.propId) : null;
+    const co = state.subCompanies.find(c => c.id === r.companyId);
+    const [dot, lbl] = statusLabel[r.status] || ['status-none','不明'];
+    const nextStatus = { pending: '依頼済みに', requested: '確定に', confirmed: '未依頼に戻す' };
+    return `<tr>
+      <td>${s?.date || '—'}</td>
+      <td>${prop?.name || '—'}</td>
+      <td><span class="badge ${s?.team === 'A' ? 'badge-blue' : 'badge-green'}">${s?.team || '—'}班</span></td>
+      <td>${co?.name || '未設定'}</td>
+      <td><span class="status-dot ${dot}"></span>${lbl}</td>
+      <td><span class="badge badge-blue">${methodLabel[r.method] || r.method}</span></td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="updateSubStatus('${r.id}')">${nextStatus[r.status]}</button>
+        <button class="btn btn-danger btn-sm btn-icon" style="margin-left:4px;" onclick="deleteSub('${r.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSubCompanies() {
+  const el = document.getElementById('subCompaniesList');
+  if (!el) return;
+  if (state.subCompanies.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🤝</div><div class="empty-text">下請け会社が未登録です</div></div>`;
+    return;
+  }
+  el.innerHTML = state.subCompanies.map(c => `
+    <div class="prop-item" style="cursor:default;">
+      <div style="width:48px;height:48px;background:var(--surface2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🤝</div>
+      <div class="prop-info">
+        <div class="prop-name">${c.name}</div>
+        <div class="prop-meta">
+          <span>👤 ${c.person || '未設定'}</span>
+          <span>📞 ${c.phone || '未設定'}</span>
+          ${c.contact ? `<span>💬 ${c.contact}</span>` : ''}
+          ${c.skill ? `<span>🔧 ${c.skill}</span>` : ''}
+        </div>
+        ${c.note ? `<div style="margin-top:4px;font-size:12px;color:var(--text2);">${c.note}</div>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm btn-icon" onclick="deleteSubCompany('${c.id}')">🗑</button>
+    </div>`).join('');
+}
+
+function filterSubs() { renderSubRequests(); }
+
+function openSubModal() {
+  const sel = document.getElementById('subSchedule');
+  const coSel = document.getElementById('subCompany');
+  if (!sel || !coSel) return;
+  sel.innerHTML = state.schedules.map(s => {
+    const prop = state.properties.find(p => p.id === s.propId);
+    return `<option value="${s.id}">${s.date} - ${prop?.name || '不明'}</option>`;
+  }).join('');
+  coSel.innerHTML = state.subCompanies.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  openModal('subModal');
+}
+
+function openSubModalForSchedule(schedId) {
+  openSubModal();
+  setTimeout(() => { document.getElementById('subSchedule').value = schedId; }, 100);
+}
+
+function saveSub() {
+  const schedId = document.getElementById('subSchedule').value;
+  const companyId = document.getElementById('subCompany').value;
+  if (!schedId || !companyId) { alert('スケジュールと会社を選択してください'); return; }
+  state.subRequests.push({
+    id: 'sr' + Date.now(),
+    scheduleId: schedId,
+    companyId,
+    count: parseInt(document.getElementById('subCount').value) || 1,
+    method: document.getElementById('subMethod').value,
+    status: document.getElementById('subReqStatus').value,
+    note: document.getElementById('subNote').value,
+  });
+  saveState();
+  renderSubRequests();
+  renderCalendar();
+  renderSidebar();
+  closeModal('subModal');
+}
+
+function deleteSub(id) {
+  if (!confirm('削除しますか？')) return;
+  state.subRequests = state.subRequests.filter(r => r.id !== id);
+  saveState();
+  renderSubRequests();
+  renderCalendar();
+  renderSidebar();
+}
+
+function openSubCompanyModal() { openModal('subCompanyModal'); }
+
+function saveSubCompany() {
+  const name = document.getElementById('subCoName').value.trim();
+  if (!name) { alert('会社名を入力してください'); return; }
+  state.subCompanies.push({
+    id: 'sc' + Date.now(),
+    name,
+    person: document.getElementById('subCoPerson').value,
+    phone: document.getElementById('subCoPhone').value,
+    contact: document.getElementById('subCoContact').value,
+    skill: document.getElementById('subCoSkill').value,
+    note: document.getElementById('subCoNote').value,
+  });
+  saveState();
+  renderSubCompanies();
+  closeModal('subCompanyModal');
+  ['subCoName','subCoPerson','subCoPhone','subCoContact','subCoSkill','subCoNote'].forEach(id => document.getElementById(id).value = '');
+}
+
+function deleteSubCompany(id) {
+  if (!confirm('削除しますか？')) return;
+  state.subCompanies = state.subCompanies.filter(c => c.id !== id);
+  saveState();
+  renderSubCompanies();
+}
+
+// ===== UTILITIES =====
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleCheck(el) {
+  el.classList.toggle('checked');
+}
+
+function updateFreqOptions() {
+  const freq = document.getElementById('propFreq').value;
+  document.getElementById('freqMonthGroup').style.display = freq === 'quarterly' ? 'block' : 'none';
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+// BUG FIX #6: populateMonthFilter builds options from actual schedule dates
+function populateMonthFilter() {
+  const sel = document.getElementById('subMonthFilter');
+  if (!sel) return;
+  // Collect unique year-month values from all schedules
+  const monthSet = new Set();
+  state.schedules.forEach(s => {
+    if (s.date) {
+      const ym = s.date.slice(0, 7); // "YYYY-MM"
+      monthSet.add(ym);
+    }
+  });
+  // Also include current year months if no schedules
+  if (monthSet.size === 0) {
+    for (let m = 1; m <= 12; m++) {
+      monthSet.add(`${state.currentYear}-${String(m).padStart(2,'0')}`);
+    }
+  }
+  const sorted = Array.from(monthSet).sort();
+  const options = sorted.map(ym => {
+    const [y, m] = ym.split('-');
+    return `<option value="${ym}">${y}年${parseInt(m)}月</option>`;
+  });
+  sel.innerHTML = `<option value="">全月</option>` + options.join('');
+}
+
+// ===== START =====
+checkAuth();
+init();
+</script>
+</body>
+</html>
